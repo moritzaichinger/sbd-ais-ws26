@@ -1,0 +1,102 @@
+definitions:
+  Drink:
+    properties:
+      description:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      price:
+        type: number
+    type: object
+  Order:
+    properties:
+      amount:
+        example: 2
+        type: integer
+      created_at:
+        example: "2026-10-21T10:00:00Z"
+        format: date-time
+        type: string
+      drink_id:
+        description: foreign key
+        example: 1
+        type: integer
+    type: object
+info:
+  contact:
+    name: Your Name
+  description: This system enables drink orders and should not be used for the forbidden
+    Hungover Games.
+  title: Order System
+paths:
+  /api/menu:
+    get:
+      description: Returns the menu of all drinks
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/Drink'
+            type: array
+      tags:
+      - Menu
+  /api/order:
+    post:
+      consumes:
+      - application/json
+      description: Adds an order to the db
+      parameters:
+      - description: Order
+        in: body
+        name: b
+        required: true
+        schema:
+          $ref: '#/definitions/Order'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: ok
+          schema:
+            type: string
+        "400":
+          description: Invalid order
+          schema:
+            type: string
+      tags:
+      - Order
+  /api/order/all:
+    get:
+      description: Returns the order history
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/Order'
+            type: array
+      tags:
+      - Order
+  /api/order/totalled:
+    get:
+      description: Returns the total quantity ordered for each drink ID
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              format: int64
+              type: integer
+            type: object
+      tags:
+      - Order
+swagger: "2.0"
