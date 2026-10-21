@@ -1,0 +1,88 @@
+Activity 2.2
+
+Step 1
+
+Rows    | Join result | Time (ms)
+50000   | 27501822    | 1267.574
+100000  | 109946508   | 8480.917
+200000  | 439395606   | 33200.281
+
+When the number of rows doubles, the number of matching pairs grows by
+about 4 times.
+
+The time grows by about 6.69 times from 50k to 100k, and by about 3.91 times
+from 100k to 200k. So the timings do not grow by exactly the same factor,
+but the second increase is close to 4 times.
+
+Prediction for 1,000,000 rows:
+
+Compared with 200,000 rows, this is 5 times as many rows.
+Assuming the pairs and runtime grow with the square of the row count,
+we multiply the 200k results by 5 * 5 = 25.
+
+Predicted join result: 439395606 * 25 = 10984890150 pairs.
+Predicted runtime: 33200.281 * 25 = 830007.025 ms.
+This is about 830 seconds, or 13 minutes and 50 seconds.
+
+These are predictions, not measurements on the full table.
+
+
+Step 2
+
+I created an index on country in people_100k and ran ANALYZE.
+
+                       | Join result | Time (ms)
+Before the index       | 109946508   | 8480.917
+After the index        | 109946508   | 8353.407
+
+I got the same count and almost the same time with and without the index.
+EXPLAIN ANALYZE showed a "Parallel Index Only Scan" on both sides and a
+"Parallel Hash Join". So PostgreSQL did use the index, but it still had to
+process about 110 million matching pairs. The index did not reduce this
+number, which explains why it did not help much.
+
+
+Step 3
+
+Table       | Matching pairs | Time (ms)
+people_100k | 109946508      | 47.773
+people_big  | 10983941260    | 666.004
+
+For 100k rows, I got exactly the same count as with the join. The new query
+took 47.773 ms instead of 8353.407 ms with the index, so it was about
+175 times faster in these runs.
+
+If a country has k people, each person matches all k people from that
+country, including themselves. This gives k * k pairs. The new query
+counts the people per country, multiplies each count by itself and adds
+everything up. This avoids going through all the pairs. NULL countries
+are skipped because they also do not match in the original join.
+
+For 1 million rows, the count was 10983941260, which is close to my
+prediction of 10984890150. I predicted about 830 seconds for the original
+join. The new query only took 666.004 ms, so less than one second.
+
+
+Step 4
+
+I would first try to improve the query before adding more hardware.
+The index barely changed the time, but the new query was much faster
+because it avoided processing all the matching pairs.
+
+If the actual pairs were needed, counting them would not be enough.
+For the full table, about 11 billion pairs would have to be produced.
+A bigger machine or a cluster could help by doing more work at once,
+but the number of pairs would stay the same. Doubling the input gives
+about four times as many pairs. Keeping the same runtime would need
+roughly four times the capacity in the best case. A cluster also needs
+time to move data between machines. I would check if the business could
+use fewer pairs, for example by filtering to certain countries.
+
+An OLTP database is mainly used for many small requests, such as adding
+an order or looking up a record. A large join can use a lot of CPU and
+memory and slow down other requests. In the cloud, extra machines,
+storage and data transfers also cost more money.
+
+I would consider a separate analytics database or data warehouse for
+these large queries. If the same counts are needed often, they could
+also be saved and updated instead of calculated again every time.
